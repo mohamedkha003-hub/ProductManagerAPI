@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدير المنتجات - DLS Task</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 20px; background-color: #f4f7f6; direction: rtl; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; text-align: center; }
+        
+        /* Form Style */
+        .form-section { background: #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        .btn-add { background-color: #28a745; color: white; padding: 12px; width: 100%; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; }
+        .btn-add:hover { background-color: #218838; }
+        
+        /* Table Style */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: center; }
+        th { background-color: #007bff; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+        
+        .btn-delete { background-color: #dc3545; color: white; padding: 5px 12px; cursor: pointer; border: none; border-radius: 4px; }
+        .btn-delete:hover { background-color: #c82333; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📦 نظام إدارة المنتجات الاحترافي</h1>
+
+    <div class="form-section">
+        <h2>أضف منتج جديد</h2>
+        <div class="form-group">
+            <label>اسم المنتج:</label>
+            <input type="text" id="name" placeholder="مثلاً: Laptop Dell">
+        </div>
+        <div class="form-group">
+            <label>الوصف:</label>
+            <input type="text" id="description" placeholder="الوصف الفني للمنتج">
+        </div>
+        <div class="form-group">
+            <label>السعر:</label>
+            <input type="number" id="price" placeholder="0.00">
+        </div>
+        <div class="form-group">
+            <label>الكمية في المخزن:</label>
+            <input type="number" id="quantity" placeholder="0">
+        </div>
+        <button class="btn-add" onclick="addProduct()">إضافة المنتج للـ Database</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>الاسم</th>
+                <th>الوصف</th>
+                <th>السعر (الوحدة)</th>
+                <th>الكمية</th>
+                <th>إجمالي القيمة</th>
+                <th>إجراءات</th>
+            </tr>
+        </thead>
+        <tbody id="productsTable">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    const apiUri = '/api/products';
+
+    // 1. دالة جلب وعرض المنتجات وحساب الإجمالي
+    async function getProducts() {
+        const response = await fetch(apiUri);
+        const products = await response.json();
+        const tableBody = document.getElementById('productsTable');
+        tableBody.innerHTML = '';
+
+        products.forEach(p => {
+            // حساب الإجمالي لكل صف
+            const totalPrice = (p.price * p.stockQuantity).toLocaleString(); 
+            
+            tableBody.innerHTML += `
+                <tr>
+                    <td>${p.id}</td>
+                    <td><b>${p.name}</b></td>
+                    <td>${p.description || '-'}</td>
+                    <td>${p.price.toLocaleString()} ج.م</td>
+                    <td>${p.stockQuantity}</td>
+                    <td style="color: #28a745; font-weight: bold;">${totalPrice} ج.م</td>
+                    <td><button class="btn-delete" onclick="deleteProduct(${p.id})">حذف 🗑️</button></td>
+                </tr>`;
+        });
+    }
+
+    // 2. دالة إضافة منتج جديد مع Validation
+    async function addProduct() {
+        // تجهيز البيانات من المدخلات
+        const nameInput = document.getElementById('name').value.trim();
+        const priceInput = parseFloat(document.getElementById('price').value);
+        const qtyInput = parseInt(document.getElementById('quantity').value);
+        const descInput = document.getElementById('description').value.trim();
+
+        // --- الـ Validation ---
+        if (!nameInput) {
+            alert("عفواً، يجب إدخال اسم المنتج.");
+            return;
+        }
+        if (isNaN(priceInput) || priceInput <= 0) {
+            alert("الرجاء إدخال سعر صحيح أكبر من صفر.");
+            return;
+        }
+        if (isNaN(qtyInput) || qtyInput < 0) {
+            alert("الرجاء إدخال كمية صحيحة.");
+            return;
+        }
+
+        const product = {
+            name: nameInput,
+            description: descInput,
+            price: priceInput,
+            stockQuantity: qtyInput
+        };
+
+        try {
+            const response = await fetch(apiUri, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(product)
+            });
+
+            if (response.ok) {
+                alert('تمت إضافة ' + nameInput + ' بنجاح!');
+                getProducts(); 
+                // مسح الخانات بعد النجاح
+                document.getElementById('name').value = '';
+                document.getElementById('description').value = '';
+                document.getElementById('price').value = '';
+                document.getElementById('quantity').value = '';
+            } else {
+                alert('فشلت عملية الإضافة، تأكد من اتصال السيرفر.');
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("حدث خطأ أثناء الاتصال بالـ API.");
+        }
+    }
+
+    // 3. دالة حذف منتج
+    async function deleteProduct(id) {
+        if (confirm('هل أنت متأكد من رغبتك في حذف هذا المنتج نهائياً؟')) {
+            await fetch(`${apiUri}/${id}`, { method: 'DELETE' });
+            getProducts();
+        }
+    }
+
+    // تشغيل الجلب عند بداية تحميل الصفحة
+    getProducts();
+</script>
+
+</body>
+</html>
